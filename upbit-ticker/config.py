@@ -1,5 +1,7 @@
 # config.py
 import os
+from dotenv import load_dotenv
+load_dotenv()  # .env 파일 로드
 
 # ---- 기본 수집/저장 설정 ----
 OUT_DIR             = os.getenv("OUT_DIR", "./data")

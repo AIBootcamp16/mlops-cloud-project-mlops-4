@@ -1,12 +1,14 @@
+# s3_uploader.py
 import os
 import re
+import shutil
 import logging
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from typing import List, Pattern
 
 import boto3
 import pyarrow.parquet as pq
-import pyarrow as pa  # noqa: F401  # (schema 타입힌트용)
+import pyarrow as pa  # noqa: F401
 
 from config import (
     OUT_DIR, PROJECT, PARQUET_COMPRESSION,
@@ -14,7 +16,6 @@ from config import (
 )
 
 log = logging.getLogger(__name__)
-
 _s3 = boto3.client("s3") if ENABLE_S3_UPLOAD else None
 
 
@@ -22,59 +23,32 @@ _s3 = boto3.client("s3") if ENABLE_S3_UPLOAD else None
 # 내부 유틸
 # -------------------------------
 def _list_files_by_pattern(pattern: Pattern) -> List[str]:
-    """OUT_DIR 내에서 정규식 패턴에 맞는 파일의 절대경로 리스트를 반환."""
     files = sorted(os.listdir(OUT_DIR))
     return [os.path.join(OUT_DIR, f) for f in files if pattern.match(f)]
 
-
 def _list_prevday_files(prev_day_str_compact: str) -> List[str]:
-    """
-    전날 파일 리스트.
-    파일명 패턴: {PROJECT}_{YYYYMMDD}T{HH}_{uuid}.parquet
-    prev_day_str_compact: 'YYYYMMDD'
-    """
     pat = re.compile(rf"^{re.escape(PROJECT)}_{prev_day_str_compact}T\d{{2}}_.+\.parquet$")
     return _list_files_by_pattern(pat)
 
-
 def _list_prevhour_files(prev_hour_compact: str) -> List[str]:
-    """
-    이전 '한 시간' 파일 리스트.
-    파일명 패턴: {PROJECT}_{YYYYMMDD}T{HH}_{uuid}.parquet
-    prev_hour_compact: 'YYYYMMDDTHH'
-    """
     pat = re.compile(rf"^{re.escape(PROJECT)}_{prev_hour_compact}_.+\.parquet$")
     return _list_files_by_pattern(pat)
 
-
 def _merge_parquet_files(input_paths: List[str], output_path: str):
-    """
-    메모리 효율을 위해 row group 단위로 읽어서 단일 ParquetWriter에 스트리밍으로 기록.
-    """
     if not input_paths:
         raise ValueError("머지할 입력 파일이 없습니다.")
-
-    # 첫 파일의 Arrow 스키마 사용
     first_pf = pq.ParquetFile(input_paths[0])
     schema = first_pf.schema_arrow
-
-    writer = pq.ParquetWriter(
-        where=output_path,
-        schema=schema,
-        compression=PARQUET_COMPRESSION,
-    )
+    writer = pq.ParquetWriter(output_path, schema=schema, compression=PARQUET_COMPRESSION)
     try:
         for path in input_paths:
             pf = pq.ParquetFile(path)
             for rg_idx in range(pf.num_row_groups):
-                table = pf.read_row_group(rg_idx)
-                writer.write_table(table)
+                writer.write_table(pf.read_row_group(rg_idx))
     finally:
         writer.close()
 
-
-def _cleanup_local_files(paths: List[str], merged_local: str, scope_label: str):
-    """업로드 성공 후 로컬 파일 정리(DELETE_AFTER_UPLOAD=true일 때)."""
+def _cleanup_sources(paths: List[str], scope_label: str):
     if not DELETE_AFTER_UPLOAD:
         return
     deleted = 0
@@ -84,11 +58,24 @@ def _cleanup_local_files(paths: List[str], merged_local: str, scope_label: str):
             deleted += 1
         except Exception as e:
             log.warning(f"[{scope_label}] 원본 삭제 실패: {p}: {e}")
+    log.info(f"[{scope_label}] 원본 {deleted}/{len(paths)} 건 삭제 완료")
+
+def _save_local_as_s3_path(merged_local: str, s3_key: str, scope_label: str) -> str | None:
+    """
+    S3 경로(s3_key)를 OUT_DIR 아래에 동일한 디렉토리 구조로 저장.
+    예: OUT_DIR/{S3_PREFIX}/dt=YYYY-MM-DD/.../filename.parquet
+    """
+    local_dest = os.path.join(OUT_DIR, *s3_key.split("/"))
+    os.makedirs(os.path.dirname(local_dest), exist_ok=True)
     try:
-        os.remove(merged_local)
+        if os.path.exists(local_dest):
+            os.remove(local_dest)  # 덮어쓰기
+        shutil.move(merged_local, local_dest)
+        log.info(f"[{scope_label}] 로컬 저장(폴백): {local_dest}")
+        return local_dest
     except Exception as e:
-        log.warning(f"[{scope_label}] 병합 파일 삭제 실패: {merged_local}: {e}")
-    log.info(f"[{scope_label}] 로컬 정리 완료: 원본 {deleted}/{len(paths)} 건 + 병합 파일 삭제")
+        log.exception(f"[{scope_label}] 로컬 저장 실패: {merged_local} → {local_dest}: {e}")
+        return None
 
 
 # -------------------------------
@@ -96,13 +83,10 @@ def _cleanup_local_files(paths: List[str], merged_local: str, scope_label: str):
 # -------------------------------
 def merge_and_upload_previous_day(prev_day: date):
     """
-    전날(UTC 기준) 파일들을 하나로 병합 후 S3에 업로드.
-    S3 경로: s3://{bucket}/{prefix}/dt=YYYY-MM-DD/{PROJECT}_{YYYYMMDD}_merged.parquet
+    전날 파일 병합 → S3 업로드.
+    S3 비활성/실패 시: 동일 경로 구조로 로컬 저장(폴백),
+    폴백에서도 DELETE_AFTER_UPLOAD=true면 원본 조각은 삭제(병합본은 보존).
     """
-    if not ENABLE_S3_UPLOAD or not _s3:
-        log.info("ENABLE_S3_UPLOAD=false → 일 단위 S3 업로드 생략")
-        return
-
     day_compact = prev_day.strftime("%Y%m%d")
     day_dash    = prev_day.strftime("%Y-%m-%d")
 
@@ -112,21 +96,37 @@ def merge_and_upload_previous_day(prev_day: date):
         return
 
     merged_local = os.path.join(OUT_DIR, f"{PROJECT}_{day_compact}_merged.parquet")
-
     log.info(f"[DAY] {len(inputs)}개 파일 병합 → {os.path.basename(merged_local)}")
     _merge_parquet_files(inputs, merged_local)
     log.info(f"[DAY] 병합 완료: {merged_local}")
 
     s3_key = f"{S3_PREFIX}/dt={day_dash}/{os.path.basename(merged_local)}"
-    try:
-        _s3.upload_file(merged_local, S3_BUCKET, s3_key)
-        log.info(f"[DAY] 업로드 완료: s3://{S3_BUCKET}/{s3_key}")
-    except Exception as e:
-        log.exception(f"[DAY] 업로드 실패: {merged_local} → s3://{S3_BUCKET}/{s3_key}: {e}")
-        # 병합 파일은 남겨둬서 재시도 가능하게 함
-        return
 
-    _cleanup_local_files(inputs, merged_local, scope_label="DAY")
+    # 1) S3 시도
+    if ENABLE_S3_UPLOAD and _s3:
+        try:
+            _s3.upload_file(merged_local, S3_BUCKET, s3_key)
+            log.info(f"[DAY] 업로드 완료: s3://{S3_BUCKET}/{s3_key}")
+            # S3 성공 시: 원본+병합본 삭제(정책에 따름)
+            if DELETE_AFTER_UPLOAD:
+                _cleanup_sources(inputs, "DAY")
+                try:
+                    os.remove(merged_local)
+                except Exception as e:
+                    log.warning(f"[DAY] 병합 파일 삭제 실패: {merged_local}: {e}")
+            return
+        except Exception as e:
+            log.exception(f"[DAY] 업로드 실패: {merged_local} → s3://{S3_BUCKET}/{s3_key}: {e}")
+            # 실패 시 폴백으로 진행
+
+    # 2) 로컬 폴백 저장(병합본 보존)
+    saved = _save_local_as_s3_path(merged_local, s3_key, "DAY")
+    if saved and DELETE_AFTER_UPLOAD:
+        _cleanup_sources(inputs, "DAY")
+        try:
+            os.remove(merged_local)
+        except Exception as e:
+            log.warning(f"[DAY] 병합 파일 삭제 실패: {merged_local}: {e}")
 
 
 # -------------------------------
@@ -134,15 +134,10 @@ def merge_and_upload_previous_day(prev_day: date):
 # -------------------------------
 def merge_and_upload_previous_hour(prev_hour_dt: datetime):
     """
-    '이전 한 시간'의 파일들을 병합 후 S3에 업로드.
-    prev_hour_dt: UTC datetime (분/초 무시)
-    S3 경로: s3://{bucket}/{prefix}/dt=YYYY-MM-DD/hour=HH/{PROJECT}_{YYYYMMDDTHH}_merged.parquet
+    이전 한 시간 파일 병합 → S3 업로드.
+    S3 비활성/실패 시: 동일 경로 구조로 로컬 저장(폴백),
+    폴백에서도 DELETE_AFTER_UPLOAD=true면 원본 조각은 삭제(병합본은 보존).
     """
-    if not ENABLE_S3_UPLOAD or not _s3:
-        # S3 업로드 비활성화면 조용히 종료
-        return
-
-    # 'YYYYMMDDTHH' 표기와 파티션용 'YYYY-MM-DD', 'HH'
     base_compact = prev_hour_dt.strftime("%Y%m%dT%H")
     day_dash     = prev_hour_dt.strftime("%Y-%m-%d")
     hour_str     = prev_hour_dt.strftime("%H")
@@ -153,17 +148,33 @@ def merge_and_upload_previous_hour(prev_hour_dt: datetime):
         return
 
     merged_local = os.path.join(OUT_DIR, f"{PROJECT}_{base_compact}_merged.parquet")
-
     log.info(f"[HOUR] {len(inputs)}개 파일 병합 → {os.path.basename(merged_local)}")
     _merge_parquet_files(inputs, merged_local)
     log.info(f"[HOUR] 병합 완료: {merged_local}")
 
     s3_key = f"{S3_PREFIX}/dt={day_dash}/hour={hour_str}/{os.path.basename(merged_local)}"
-    try:
-        _s3.upload_file(merged_local, S3_BUCKET, s3_key)
-        log.info(f"[HOUR] 업로드 완료: s3://{S3_BUCKET}/{s3_key}")
-    except Exception as e:
-        log.exception(f"[HOUR] 업로드 실패: {merged_local} → s3://{S3_BUCKET}/{s3_key}: {e}")
-        return
 
-    _cleanup_local_files(inputs, merged_local, scope_label="HOUR")
+    # 1) S3 시도
+    if ENABLE_S3_UPLOAD and _s3:
+        try:
+            _s3.upload_file(merged_local, S3_BUCKET, s3_key)
+            log.info(f"[HOUR] 업로드 완료: s3://{S3_BUCKET}/{s3_key}")
+            if DELETE_AFTER_UPLOAD:
+                _cleanup_sources(inputs, "HOUR")
+                try:
+                    os.remove(merged_local)
+                except Exception as e:
+                    log.warning(f"[HOUR] 병합 파일 삭제 실패: {merged_local}: {e}")
+            return
+        except Exception as e:
+            log.exception(f"[HOUR] 업로드 실패: {merged_local} → s3://{S3_BUCKET}/{s3_key}: {e}")
+            # 실패 시 폴백으로 진행
+
+    # 2) 로컬 폴백 저장(병합본 보존)
+    saved = _save_local_as_s3_path(merged_local, s3_key, "HOUR")
+    if saved and DELETE_AFTER_UPLOAD:
+        _cleanup_sources(inputs, "HOUR")
+        try:
+            os.remove(merged_local)
+        except Exception as e:
+            log.warning(f"[HOUR] 병합 파일 삭제 실패: {merged_local}: {e}")
