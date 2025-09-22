@@ -1,0 +1,137 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36" version="26.0.10">
+  <diagram name="페이지-1" id="1Yx4NxUe2aQ_hFQ3zY_0">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-6" value="시작" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="362" y="20" width="89" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-7" value="get_coin_list()" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="325" y="124" width="164" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-8" value="KRW 마켓 코인 리스트 조회&#xa;API: /v1/market/all" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="286" y="228" width="243" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-9" value="상위 5개 코인 선택&#xa;테스트용" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="314" y="356" width="186" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-10" value="타이머 시작&#xa;duration_sec = 300초&#xa;5분간 실행" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="302" y="484" width="210" height="102" as="geometry" />
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-11" value="시간 체크&#xa;10분 경과?" style="rhombus;strokeWidth=2;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="336" y="636" width="142" height="142" as="geometry" />
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-12" value="get_ticker_data()" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="57" y="863" width="186" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-13" value="현재가 데이터 조회&#xa;API: /v1/ticker" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="56" y="979" width="187" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-14" value="데이터 파싱&#xa;timestamp, market, trade_price&#xa;change_rate, acc_trade_volume" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="20" y="1107" width="260" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-15" value="DataFrame 생성" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="64" y="1307" width="172" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-16" value="all_data 리스트에 추가" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="42" y="1411" width="216" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-17" value="10초 대기&#xa;time.sleep(10)" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="270" y="1515" width="165" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-18" value="모든 DataFrame 병합&#xa;pd.concat()" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="304" y="851" width="207" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-19" value="CSV 파일 저장&#xa;upbit_realtime_10s.csv" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="294" y="979" width="227" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-20" value="완료" style="whiteSpace=wrap;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="362" y="1155" width="89" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-21" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.51;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="qxtsxxugnKK6Bom26AmJ-6" target="qxtsxxugnKK6Bom26AmJ-7">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-22" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="qxtsxxugnKK6Bom26AmJ-7" target="qxtsxxugnKK6Bom26AmJ-8">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-23" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="qxtsxxugnKK6Bom26AmJ-8" target="qxtsxxugnKK6Bom26AmJ-9">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-24" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="qxtsxxugnKK6Bom26AmJ-9" target="qxtsxxugnKK6Bom26AmJ-10">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-25" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="qxtsxxugnKK6Bom26AmJ-10" target="qxtsxxugnKK6Bom26AmJ-11">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-26" value="No" style="curved=1;startArrow=none;endArrow=block;exitX=0;exitY=0.71;entryX=0.5;entryY=-0.01;rounded=0;" edge="1" parent="1" source="qxtsxxugnKK6Bom26AmJ-11" target="qxtsxxugnKK6Bom26AmJ-12">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="150" y="814" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-27" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=0.99;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="qxtsxxugnKK6Bom26AmJ-12" target="qxtsxxugnKK6Bom26AmJ-13">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-28" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="qxtsxxugnKK6Bom26AmJ-13" target="qxtsxxugnKK6Bom26AmJ-14">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-29" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=-0.01;rounded=0;" edge="1" parent="1" source="qxtsxxugnKK6Bom26AmJ-14" target="qxtsxxugnKK6Bom26AmJ-15">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-30" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=0.99;entryX=0.5;entryY=-0.01;rounded=0;" edge="1" parent="1" source="qxtsxxugnKK6Bom26AmJ-15" target="qxtsxxugnKK6Bom26AmJ-16">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-31" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=0.99;entryX=0;entryY=0.16;rounded=0;" edge="1" parent="1" source="qxtsxxugnKK6Bom26AmJ-16" target="qxtsxxugnKK6Bom26AmJ-17">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="150" y="1490" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-32" value="" style="curved=1;startArrow=none;endArrow=block;exitX=1;exitY=0.16;entryX=1;entryY=0.86;rounded=0;" edge="1" parent="1" source="qxtsxxugnKK6Bom26AmJ-17" target="qxtsxxugnKK6Bom26AmJ-11">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="555" y="1490" />
+              <mxPoint x="555" y="814" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-33" value="Yes" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="qxtsxxugnKK6Bom26AmJ-11" target="qxtsxxugnKK6Bom26AmJ-18">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-34" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;rounded=0;" edge="1" parent="1" source="qxtsxxugnKK6Bom26AmJ-18" target="qxtsxxugnKK6Bom26AmJ-19">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qxtsxxugnKK6Bom26AmJ-35" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.51;entryY=-0.01;rounded=0;" edge="1" parent="1" source="qxtsxxugnKK6Bom26AmJ-19" target="qxtsxxugnKK6Bom26AmJ-20">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
