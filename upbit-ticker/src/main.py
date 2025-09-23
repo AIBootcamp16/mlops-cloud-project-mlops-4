@@ -15,6 +15,7 @@ from config import (
     LOG_LEVEL,
     ENABLE_HOURLY_UPLOAD,
     ENABLE_S3_UPLOAD,
+    MARKETS,
 )
 from datetime import datetime, timezone
 from parquet_appender import HourlyParquetAppender
@@ -64,11 +65,12 @@ def main():
         f"Config → OUT_DIR={OUT_DIR}, PROJECT={PROJECT}, "
         f"POLL_INTERVAL_SEC={POLL_INTERVAL_SEC}, FLUSH_MAX_SEC={FLUSH_MAX_SEC}, "
         f"MARKETS_LIMIT={MARKETS_LIMIT}, PARQUET_COMPRESSION={PARQUET_COMPRESSION}, LOG_LEVEL={LOG_LEVEL}, "
-        f"ENABLE_HOURLY_UPLOAD={ENABLE_HOURLY_UPLOAD}"
+        f"ENABLE_HOURLY_UPLOAD={ENABLE_HOURLY_UPLOAD}, "
         f"ENABLE_S3_UPLOAD={ENABLE_S3_UPLOAD}"
     )
 
-    markets = get_coin_list()
+    markets = get_coin_list() if not MARKETS else MARKETS
+    log.info(f"fetch ticker for markets: {markets}")
 
     # 날짜/시간 경계 감지를 위한 현재 UTC 스냅샷
     current_day = datetime.now(timezone.utc).date()

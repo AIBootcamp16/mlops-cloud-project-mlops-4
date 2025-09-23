@@ -66,3 +66,10 @@ ENABLE_HOURLY_UPLOAD = os.getenv("ENABLE_HOURLY_UPLOAD", "false").strip().lower(
 # AWS credentials
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+
+# 수집할 마켓 리스트 (콤마 구분)
+MARKETS = (
+    [m.strip() for m in os.getenv("MARKETS", "").split(",") if m.strip()]
+    if os.getenv("MARKETS", "").strip()
+    else []
+)

@@ -8,10 +8,12 @@ from config import MARKETS_LIMIT, NONE_POLICY
 log = logging.getLogger(__name__)
 
 UPBIT_MARKET_ALL = "https://api.upbit.com/v1/market/all"
-UPBIT_TICKER     = "https://api.upbit.com/v1/ticker?markets={markets}"
+UPBIT_TICKER = "https://api.upbit.com/v1/ticker?markets={markets}"
+
 
 def now_utc():
     return datetime.now(timezone.utc)
+
 
 def _to_float(v: Any) -> Optional[float]:
     if v is None:
@@ -28,12 +30,14 @@ def _to_float(v: Any) -> Optional[float]:
             return None
     return None
 
+
 def get_coin_list() -> List[str]:
     res = requests.get(UPBIT_MARKET_ALL, timeout=5)
     res.raise_for_status()
     data = res.json()
-    markets = [c["market"] for c in data if c.get("market","").startswith("KRW-")]
-    return markets[:max(1, MARKETS_LIMIT)]
+    markets = [c["market"] for c in data if c.get("market", "").startswith("KRW-")]
+    return markets[: max(1, MARKETS_LIMIT)]
+
 
 def get_ticker_rows(markets: List[str]) -> List[dict]:
     url = UPBIT_TICKER.format(markets=",".join(markets))
