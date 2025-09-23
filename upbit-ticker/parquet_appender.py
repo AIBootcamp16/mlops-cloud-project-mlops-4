@@ -116,7 +116,10 @@ class HourlyParquetAppender:
 
         df = pd.DataFrame(self.buffer)
         table = pa.Table.from_pandas(df, schema=self.schema, preserve_index=False)
-        self.current_writer.write_table(table)
+        if self.current_writer is not None:
+            self.current_writer.write_table(table)
+        else:
+            log.error("Parquet writer is not initialized. Cannot write table.")
 
         log.info(f"Flushed {len(self.buffer)} rows to {self.current_file_path}")
 
