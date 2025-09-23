@@ -17,7 +17,8 @@ from config import (
     ENABLE_S3_UPLOAD,
     MARKETS,
 )
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from parquet_appender import HourlyParquetAppender
 from upbit_client import get_coin_list, get_ticker_rows
 from s3_uploader import (
@@ -44,9 +45,31 @@ def main():
         [
             ("event_timestamp", pa.timestamp("ns")),
             ("market", pa.string()),
+            ("trade_date", pa.string()),
+            ("trade_time", pa.string()),
+            ("trade_date_kst", pa.string()),
+            ("trade_time_kst", pa.string()),
+            ("trade_timestamp", pa.int64()),
+            ("opening_price", pa.float64()),
+            ("high_price", pa.float64()),
+            ("low_price", pa.float64()),
             ("trade_price", pa.float64()),
+            ("prev_closing_price", pa.float64()),
+            ("change", pa.string()),
+            ("change_price", pa.float64()),
             ("change_rate", pa.float64()),
+            ("signed_change_price", pa.float64()),
+            ("signed_change_rate", pa.float64()),
+            ("trade_volume", pa.float64()),
+            ("acc_trade_price", pa.float64()),
+            ("acc_trade_price_24h", pa.float64()),
             ("acc_trade_volume", pa.float64()),
+            ("acc_trade_volume_24h", pa.float64()),
+            ("highest_52_week_price", pa.float64()),
+            ("highest_52_week_date", pa.string()),
+            ("lowest_52_week_price", pa.float64()),
+            ("lowest_52_week_date", pa.string()),
+            ("timestamp", pa.int64()),
         ]
     )
 
@@ -72,9 +95,11 @@ def main():
     markets = get_coin_list() if not MARKETS else MARKETS
     log.info(f"fetch ticker for markets: {markets}")
 
+    # 서울 타임존 객체
+    seoul_tz = ZoneInfo("Asia/Seoul")
     # 날짜/시간 경계 감지를 위한 현재 UTC 스냅샷
-    current_day = datetime.now(timezone.utc).date()
-    current_hour_key = _hour_key(datetime.now(timezone.utc))
+    current_day = datetime.now(seoul_tz).date()
+    current_hour_key = _hour_key(datetime.now(seoul_tz))
 
     try:
         while not stop["flag"]:
@@ -88,16 +113,16 @@ def main():
                 log.exception(f"poll/write error: {e}")
 
             # 2-a) 시간 경계(정시) 감지 → '직전 시각' 병합 업로드 (옵션)
-            new_hour_key = _hour_key(datetime.now(timezone.utc))
+            new_hour_key = _hour_key(datetime.now(seoul_tz))
             if ENABLE_HOURLY_UPLOAD and new_hour_key != current_hour_key:
                 # 직전 시각(UTC) datetime 구하기
                 try:
                     prev_hour_dt = datetime.strptime(
                         current_hour_key, "%Y%m%dT%H"
-                    ).replace(tzinfo=timezone.utc)
+                    ).replace(tzinfo=seoul_tz)
                 except Exception:
                     # 파싱 실패 시 현재 시각 - 1시간으로 보정
-                    prev_hour_dt = datetime.now(timezone.utc).replace(
+                    prev_hour_dt = datetime.now(seoul_tz).replace(
                         minute=0, second=0, microsecond=0
                     )
                     prev_hour_dt = prev_hour_dt.replace(

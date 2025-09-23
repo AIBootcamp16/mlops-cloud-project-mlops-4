@@ -6,26 +6,32 @@ import hashlib
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-from config import (
-    OUT_DIR, PROJECT, FLUSH_MAX_SEC, PARQUET_COMPRESSION
-)
+from config import OUT_DIR, PROJECT, FLUSH_MAX_SEC, PARQUET_COMPRESSION
 
 log = logging.getLogger(__name__)
+# 서울 타임존 객체
+seoul_tz = ZoneInfo("Asia/Seoul")
+
 
 def ensure_dir(path: str):
     os.makedirs(path, exist_ok=True)
 
+
 def now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(seoul_tz)
+
 
 def hour_key(dt: datetime) -> str:
     # 파일/파티션은 UTC 기준 시단위로 관리
     return dt.strftime("%Y%m%dT%H")
 
+
 def make_filename(dt: datetime) -> str:
     return f"{PROJECT}_{hour_key(dt)}_{uuid.uuid4().hex}.parquet"
+
 
 class HourlyParquetAppender:
     """
@@ -33,6 +39,7 @@ class HourlyParquetAppender:
     - 조건: FLUSH_MAX_SEC(최대 대기 시간) 경과 또는 시간 경계 진입 시 flush
     - 중복키( market + event_timestamp ) 기반으로 같은 윈도우 내 중복 방지
     """
+
     def __init__(self, schema: pa.schema):
         self.out_dir = OUT_DIR
         self.schema = schema
@@ -58,7 +65,7 @@ class HourlyParquetAppender:
         self.current_writer = pq.ParquetWriter(
             where=self.current_file_path,
             schema=self.schema,
-            compression=PARQUET_COMPRESSION
+            compression=PARQUET_COMPRESSION,
         )
         self.current_hour = hour_key(when)
 

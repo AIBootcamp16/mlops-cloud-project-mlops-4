@@ -1,6 +1,7 @@
 import logging
 import requests
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Any, Optional, List
 
 from config import MARKETS_LIMIT, NONE_POLICY
@@ -9,10 +10,11 @@ log = logging.getLogger(__name__)
 
 UPBIT_MARKET_ALL = "https://api.upbit.com/v1/market/all"
 UPBIT_TICKER = "https://api.upbit.com/v1/ticker?markets={markets}"
+seoul_tz = ZoneInfo("Asia/Seoul")
 
 
 def now_utc():
-    return datetime.now(timezone.utc)
+    return datetime.now(seoul_tz)
 
 
 def _to_float(v: Any) -> Optional[float]:
