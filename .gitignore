@@ -3,3 +3,6 @@ __pycache__
 *.parquet
 .env
 .venv
+.conda
+pgdata
+outputs
