@@ -9,6 +9,8 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
+from s3_loader import S3ParquetLoader, S3ParquetLoaderConfig
+from data_preprocessor import DataPreprocessor
 
 # ==============================
 # 0. MLflow 서버 URI 설정 (필요하면)
@@ -23,19 +25,39 @@ mlflow.set_tracking_uri(remote_server_uri)
 # ==============================
 mlflow.set_experiment("bitcoin-lstm")
 
-mlflow.autolog()
+# mlflow.tensorflow.autolog()
 # ==============================    
 # 2. 데이터 로드 & 전처리
 # ==============================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = os.path.join(BASE_DIR, "data", "KRW-BTC_historical.csv")
-df = pd.read_csv(DATA_PATH, parse_dates=['timestamp'])
+# BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# DATA_PATH = os.path.join(BASE_DIR, "data", "KRW-BTC_historical.csv")
+# df = pd.read_csv(DATA_PATH, parse_dates=['timestamp'])
 # files = ["KRW-BTC_historical.csv"]
 # for f in files:
 #     df = pd.read_csv(f"data/{f}", parse_dates=['timestamp'])
 #     df = df.sort_values('timestamp')
 
-df = df.set_index('timestamp').resample('1H').ffill()
+print("2. data loading")
+
+cfg = S3ParquetLoaderConfig(
+    bucket="raw-data-bucket-moasic-mlops-4",
+    base_prefix="upbit_ticker",
+)
+
+loader = S3ParquetLoader(cfg)
+df = loader.load_today_and_yesterday()
+
+print("3. data preprocessing")
+
+dt = DataPreprocessor()
+df = dt.market_filter(df, "KRW-BTC")
+df = dt.time_transform(df, "Asia/Seoul")
+
+# timestamp 기준 중복 제거
+#TODO: 실제로 필요한지 확인, 현재 중복되면 마지막 값으로 남김
+df = dt.deduplicate(df, how="last")
+
+df = df.set_index('timestamp').resample('1h').ffill()
 
 df['MA_3'] = df['trade_price'].rolling(3).mean()
 df['MA_6'] = df['trade_price'].rolling(6).mean()
@@ -73,7 +95,7 @@ y_test_scaled = scaler_y.transform(y_test.reshape(-1, 1))
 # ==============================
 # 3. MLflow Run 시작
 # ==============================
-with mlflow.start_run(run_name="LSTM_24h")  :
+with mlflow.start_run(run_name="LSTM_24h_s3_loader")  :
 
     # ------------------------------
     # 하이퍼파라미터 로깅
