@@ -16,18 +16,24 @@ from tensorflow.keras.layers import LSTM, Dense
 remote_server_uri = "http://3.39.10.103:5000"
 mlflow.set_tracking_uri(remote_server_uri)
 
+# mlflow.set_tracking_uri("file:///tmp/mlruns") #로컬 테스트용
+
 # ==============================
 # 1. 실험 설정
 # ==============================
 mlflow.set_experiment("bitcoin-lstm")
 
+mlflow.autolog()
 # ==============================    
 # 2. 데이터 로드 & 전처리
 # ==============================
-files = ["KRW-BTC_historical.csv"]
-for f in files:
-    df = pd.read_csv(f"data/{f}", parse_dates=['timestamp'])
-    df = df.sort_values('timestamp')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_PATH = os.path.join(BASE_DIR, "data", "KRW-BTC_historical.csv")
+df = pd.read_csv(DATA_PATH, parse_dates=['timestamp'])
+# files = ["KRW-BTC_historical.csv"]
+# for f in files:
+#     df = pd.read_csv(f"data/{f}", parse_dates=['timestamp'])
+#     df = df.sort_values('timestamp')
 
 df = df.set_index('timestamp').resample('1H').ffill()
 
@@ -67,7 +73,7 @@ y_test_scaled = scaler_y.transform(y_test.reshape(-1, 1))
 # ==============================
 # 3. MLflow Run 시작
 # ==============================
-with mlflow.start_run(run_name="LSTM_24h"):
+with mlflow.start_run(run_name="LSTM_24h")  :
 
     # ------------------------------
     # 하이퍼파라미터 로깅
@@ -114,7 +120,7 @@ with mlflow.start_run(run_name="LSTM_24h"):
     os.makedirs(ARTIFACT_DIR, exist_ok=True)
 
     # 모델 저장
-    model_path = os.path.join(ARTIFACT_DIR, "lstm_model.h5")
+    model_path = os.path.join(ARTIFACT_DIR, "lstm_model.keras")
     model.save(model_path)
     mlflow.log_artifact(model_path)
 
