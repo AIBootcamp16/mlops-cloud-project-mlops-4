@@ -11,7 +11,7 @@ st.set_page_config(page_title="Bitcoin 예측 사이트", layout="wide")
 # -------------------------
 col_title, col_button = st.columns([8, 2])  # 비율로 너비 조절
 with col_title:
-    st.title("🚀 Bitcoin 1시간 단위 가격 예측 사이트")
+    st.title("🚀 Bitcoin 1시간 단위 가격 예측")
 with col_button:
     predict_btn = st.button("예측하기")
 
