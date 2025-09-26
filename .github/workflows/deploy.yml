@@ -45,87 +45,27 @@ jobs:
           port: ${{ secrets.EC2_SSH_PORT }}
           script_stop: true
           script: |
-            set -e  # 에러 발생시 스크립트 중단
-          
-            echo "=== Git 업데이트 시작 ==="
             cd /home/ubuntu/mlops-cloud-project-mlops-4
             git pull origin main
             cd /home/ubuntu/mlops-cloud-project-mlops-4/streamlit_ui
+
+            # 기존 컨테이너 종료 및 제거
+            docker stop bitcoin-ui || true
+            docker rm bitcoin-ui || true
+
+            # 80번 포트를 사용하는 모든 프로세스 강제 종료
+            sudo lsof -ti:80 | xargs sudo kill -9 || true
+            sudo netstat -tlnp | grep :80 | awk '{print $7}' | cut -d'/' -f1 | xargs sudo kill -9 || true
             
-            echo "=== 기존 컨테이너 정리 ==="
-            # 기존 컨테이너가 있으면 중지 및 삭제
-            if docker ps -a --format "{{.Names}}" | grep -q "^bitcoin-ui$"; then
-                echo "기존 bitcoin-ui 컨테이너 중지 중..."
-                docker stop bitcoin-ui
-                docker rm bitcoin-ui
-            else
-                echo "기존 bitcoin-ui 컨테이너 없음"
-            fi
-            
-            echo "=== 포트 80 정리 ==="
-            # ss 명령어 사용 (netstat 대신)
-            if command -v ss >/dev/null 2>&1; then
-                # ss로 포트 80을 사용하는 프로세스 찾아서 종료
-                ss -tlnp | grep :80 | awk '{print $6}' | grep -o 'pid=[0-9]*' | cut -d'=' -f2 | xargs -r sudo kill -9 || true
-            elif command -v lsof >/dev/null 2>&1; then
-                # lsof로 포트 80을 사용하는 프로세스 종료
-                sudo lsof -ti:80 | xargs -r sudo kill -9 || true
-            else
-                echo "포트 정리 도구를 찾을 수 없습니다. 계속 진행합니다."
-            fi
-            
-            # 포트 80을 사용하는 다른 Docker 컨테이너 정리
-            echo "포트 80을 사용하는 Docker 컨테이너 확인 중..."
-            docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Ports}}" | grep "0.0.0.0:80" | awk '{print $1}' | xargs -r docker stop || true
-            
-            echo "=== 잠시 대기 (포트 해제 대기) ==="
-            sleep 5
-            
-            echo "=== Docker 이미지 태그 계산 ==="
-            # 최신 태그 확인 및 다음 태그 생성
-            LATEST_TAG=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^bitcoin-ui:" | sort -V | tail -n1 | awk -F':' '{print $2}' || echo "")
-            
-            if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "<none>" ]; then
-                NEXT_TAG="v1"
-                echo "첫 번째 이미지 빌드: $NEXT_TAG"
-            else
-                NUM=$(echo $LATEST_TAG | sed 's/v//' | grep -o '[0-9]*' || echo "0")
-                NEXT_NUM=$((NUM+1))
-                NEXT_TAG="v$NEXT_NUM"
-                echo "기존 태그: $LATEST_TAG, 새 태그: $NEXT_TAG"
-            fi
-            
-            echo "=== Docker 이미지 빌드 ==="
-            echo "새 이미지 빌드 중: bitcoin-ui:${NEXT_TAG}"
-            docker build -t bitcoin-ui:${NEXT_TAG} .
-            
-            echo "=== 포트 사용 가능 여부 재확인 ==="
-            if command -v ss >/dev/null 2>&1; then
-                if ss -tln | grep -q ":80 "; then
-                    echo "경고: 포트 80이 여전히 사용 중입니다."
-                    ss -tln | grep ":80 "
-                fi
-            fi
-            
-            echo "=== 새 컨테이너 실행 ==="
-            docker run -d -p 80:8501 --name bitcoin-ui --restart unless-stopped bitcoin-ui:${NEXT_TAG}
-            
-            echo "=== 컨테이너 상태 확인 ==="
+            # 잠시 대기 (포트 해제 시간 확보)
             sleep 3
-            if docker ps | grep -q bitcoin-ui; then
-                echo "✅ 배포 성공! bitcoin-ui 컨테이너가 실행 중입니다."
-                docker ps --filter name=bitcoin-ui --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-            else
-                echo "❌ 배포 실패! 컨테이너가 실행되지 않았습니다."
-                echo "컨테이너 로그:"
-                docker logs bitcoin-ui || true
-                exit 1
-            fi
             
-            echo "=== 오래된 이미지 정리 (최신 3개만 유지) ==="
-            docker images --format "{{.Repository}}:{{.Tag}}" | grep "^bitcoin-ui:v" | sort -V | head -n -3 | xargs -r docker rmi || true
-            
-            echo "=== 배포 완료 ==="
+            # 다른 Docker 컨테이너가 80번 포트를 사용하고 있다면 중지
+            docker ps --format "table {{.ID}}\t{{.Ports}}" | grep "0.0.0.0:80" | awk '{print $1}' | xargs docker stop || true
+
+            # 이미지 빌드 및 실행
+            docker build -t bitcoin-ui .
+            docker run -d -p 80:8501 --name bitcoin-ui bitcoin-ui
 
       # 5️⃣ 보안 그룹에서 Actions IP 제거
       - name: Remove Github Actions IP From Security Group
