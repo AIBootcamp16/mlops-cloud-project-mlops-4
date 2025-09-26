@@ -6,18 +6,12 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Bitcoin 예측 사이트", layout="wide")
 
-# -------------------------
-# 제목 + 버튼
-# -------------------------
 col_title, col_button = st.columns([8, 2])  # 비율로 너비 조절
 with col_title:
     st.title("🚀 Bitcoin 1시간 단위 가격 예측")
 with col_button:
     predict_btn = st.button("예측하기")
 
-# -------------------------
-# 사이드바 옵션
-# -------------------------
 st.sidebar.header("⚙️ 설정")
 
 coins = ['KRW-BTC', 'KRW-ETH', 'KRW-DOGE', 'KRW-XRP']
