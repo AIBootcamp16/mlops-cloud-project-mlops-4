@@ -1,0 +1,81 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'streamlit/app.py'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ 현재 Actions public IP 가져오기
+      - name: Get Github Actions IP
+        id: ip
+        uses: haythem/public-ip@v1.2
+
+      # 2️⃣ AWS CLI용 자격 증명 설정
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      # 3️⃣ 보안 그룹에 현재 Actions IP 임시 허용
+      - name: Add Github Actions IP to Security group
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id ${{ secrets.AWS_SG_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.ip.outputs.ipv4 }}/32
+
+      # 4️⃣ SSH 접속 후 명령 실행
+      - name: SSH Commands
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT }}
+          script_stop: true
+          script: |
+            cd /home/ubuntu/TIL
+            git pull origin main
+            cd /home/ubuntu/TIL/streamlit_ui
+
+            # 기존 컨테이너 종료 및 제거
+            docker stop bitcoin-ui || true
+            docker rm bitcoin-ui || true
+
+            # 80번 포트를 사용하는 모든 프로세스 강제 종료
+            sudo lsof -ti:80 | xargs sudo kill -9 || true
+            sudo netstat -tlnp | grep :80 | awk '{print $7}' | cut -d'/' -f1 | xargs sudo kill -9 || true
+            
+            # 잠시 대기 (포트 해제 시간 확보)
+            sleep 3
+
+            # Apache/Nginx 등 웹서버가 실행 중이면 중지
+            sudo systemctl stop apache2 || true
+            sudo systemctl stop nginx || true
+            
+            # 다른 Docker 컨테이너가 80번 포트를 사용하고 있다면 중지
+            docker ps --format "table {{.ID}}\t{{.Ports}}" | grep "0.0.0.0:80" | awk '{print $1}' | xargs docker stop || true
+
+            # 이미지 빌드 및 실행
+            docker build -t bitcoin-ui .
+            docker run -d -p 80:8501 --name bitcoin-ui bitcoin-ui
+
+      # 5️⃣ 보안 그룹에서 Actions IP 제거
+      - name: Remove Github Actions IP From Security Group
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id ${{ secrets.AWS_SG_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.ip.outputs.ipv4 }}/32
