@@ -12,9 +12,6 @@ with col_title:
 with col_button:
     predict_btn = st.button("예측하기")
 
-# -------------------------
-# 사이드바 옵션
-# -------------------------
 st.sidebar.header("⚙️ 설정")
 
 coins = ['KRW-BTC', 'KRW-ETH', 'KRW-DOGE', 'KRW-XRP']
