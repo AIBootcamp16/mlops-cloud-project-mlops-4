@@ -45,6 +45,8 @@ jobs:
           port: ${{ secrets.EC2_SSH_PORT }}
           script_stop: true
           script: |
+            set -e
+            
             cd /home/ubuntu/mlops-cloud-project-mlops-4
             git pull origin main
             cd /home/ubuntu/mlops-cloud-project-mlops-4/streamlit_ui
@@ -52,28 +54,31 @@ jobs:
             docker stop bitcoin-ui || true
             docker rm bitcoin-ui || true
 
-            sudo lsof -ti:80 | xargs sudo kill -9 || true
-            sudo netstat -tlnp | grep :80 | awk '{print $7}' | cut -d'/' -f1 | xargs sudo kill -9 || true
+            # ss 명령어 사용 (netstat 대신)
+            if command -v ss >/dev/null 2>&1; then
+                ss -tlnp | grep :80 | awk '{print $6}' | grep -o 'pid=[0-9]*' | cut -d'=' -f2 | xargs -r sudo kill -9 || true
+            else
+                sudo lsof -ti:80 | xargs -r sudo kill -9 || true
+            fi
             
-            sleep 3
+            sleep 5
             
-            docker ps --format "table {{.ID}}\t{{.Ports}}" | grep "0.0.0.0:80" | awk '{print $1}' | xargs docker stop || true
+            docker ps --format "table {{.ID}}\t{{.Ports}}" | grep "0.0.0.0:80" | awk '{print $1}' | xargs -r docker stop || true
 
-            LATEST_TAG=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep bitcoin-ui | sort -V | tail -n1 | awk -F':' '{print $2}')
+            LATEST_TAG=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^bitcoin-ui:" | sort -V | tail -n1 | awk -F':' '{print $2}' || echo "")
 
-            if [ -z "$LATEST_TAG" ]; then
+            if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "<none>" ]; then
                 NEXT_TAG="v1"
             else
-                NUM=$(echo $LATEST_TAG | sed 's/v//')
+                NUM=$(echo $LATEST_TAG | sed 's/v//' | grep -o '[0-9]*' || echo "0")
                 NEXT_NUM=$((NUM+1))
                 NEXT_TAG="v$NEXT_NUM"
             fi
 
-            echo "Building new image: bitcoin-ui-${NEXT_TAG}"
+            echo "Building new image: bitcoin-ui:${NEXT_TAG}"
 
-            docker build -t bitcoin-ui-${NEXT_TAG} .
-            docker run -d -p 80:8501 --name bitcoin-ui bitcoin-ui-${NEXT_TAG}
-
+            docker build -t bitcoin-ui:${NEXT_TAG} .
+            docker run -d -p 80:8501 --name bitcoin-ui --restart unless-stopped bitcoin-ui:${NEXT_TAG}
 
       # 5️⃣ 보안 그룹에서 Actions IP 제거
       - name: Remove Github Actions IP From Security Group
