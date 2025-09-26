@@ -6,7 +6,7 @@ on:
     branches:
       - main
     paths:
-      - 'streamlit/app.py'
+      - 'streamlit_ui/app.py'
 
 jobs:
   deploy:
@@ -45,9 +45,9 @@ jobs:
           port: ${{ secrets.EC2_SSH_PORT }}
           script_stop: true
           script: |
-            cd /home/ubuntu/TIL
+            cd /home/ubuntu/mlops-cloud-project-mlops-4
             git pull origin main
-            cd /home/ubuntu/TIL/streamlit_ui
+            cd /home/ubuntu/mlops-cloud-project-mlops-4/streamlit_ui
 
             # 기존 컨테이너 종료 및 제거
             docker stop bitcoin-ui || true
