@@ -108,5 +108,3 @@ metrics_df = pd.DataFrame({
 metrics_df_reset = metrics_df.reset_index(drop=True)
 
 st.dataframe(metrics_df_reset, height=100, use_container_width=True)
-
-print("Streamlit app is running.....")
