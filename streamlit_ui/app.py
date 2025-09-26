@@ -6,9 +6,6 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="Bitcoin 예측 사이트", layout="wide")
 
-# -------------------------
-# 제목 + 버튼
-# -------------------------
 col_title, col_button = st.columns([8, 2])  # 비율로 너비 조절
 with col_title:
     st.title("🚀 Bitcoin 1시간 단위 가격 예측")
