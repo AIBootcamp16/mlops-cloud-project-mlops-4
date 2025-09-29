@@ -1,0 +1,54 @@
+version: "3.8"
+
+services:
+  airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: airflow-standalone
+    user: "${AIRFLOW_UID:-50000}:${AIRFLOW_GID:-0}"
+    environment:
+      AIRFLOW_HOME: /opt/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "sqlite:////opt/airflow/db/airflow.db"
+
+      # admin 계정 정보 (원하면 .env로 분리)
+      AIRFLOW_ADMIN_USERNAME: "admin"
+      AIRFLOW_ADMIN_PASSWORD: "admin"
+      AIRFLOW_ADMIN_FIRSTNAME: "Admin"
+      AIRFLOW_ADMIN_LASTNAME: "User"
+      AIRFLOW_ADMIN_EMAIL: "admin@example.com"
+
+      # (선택) 타임존 등
+      AIRFLOW__CORE__DEFAULT_TIMEZONE: "Asia/Seoul"
+
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+      S3_BUCKET: ${S3_BUCKET}
+      ROOT_PREFIX: ${ROOT_PREFIX}
+      SERVICE_NAME: upbit_ticker
+      PROJECT_NAME: upbit_ticker_curated
+      API_BASE_URL: https://api.upbit.com/v1/ticker
+      MARKETS: KRW-BTC,KRW-ETH,KRW-DOGE,KRW-XRP
+    ports:
+      - "8080:8080"
+
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./plugins:/opt/airflow/plugins
+      - ./logs:/opt/airflow/logs
+      - ./config:/opt/airflow/config
+      - ./data:/opt/airflow/data
+      - ./airflow_db:/opt/airflow/db
+      - ./entrypoint.sh:/entrypoint.sh
+
+    entrypoint: [ "/bin/bash", "/entrypoint.sh" ]
+
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+    restart: unless-stopped

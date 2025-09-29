@@ -3,14 +3,14 @@ __pycache__
 *.parquet
 .env
 .venv
-<<<<<<< Updated upstream
 .conda
 pgdata
 outputs
-=======
 .DS_Store
 
 test_myself/
 data/
 mlruns/
->>>>>>> Stashed changes
+
+airflow/logs
+airflow/airflow_db
