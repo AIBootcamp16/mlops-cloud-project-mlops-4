@@ -6,7 +6,7 @@ on:
     branches:
       - main
     paths:
-      - 'streamlit_ui/app.py'
+      - 'services/streamlit_ui/app.py'
 
 jobs:
   deploy:

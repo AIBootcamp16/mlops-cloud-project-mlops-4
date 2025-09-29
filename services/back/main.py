@@ -20,7 +20,7 @@ app.add_middleware(
 
 # 라우터 등록
 for router, prefix, tags in routers:
-    app.include_router(router, prefix=prefix, tags=tags)
+    app.include_router(router)
 
 # uvicorn으로 실행할 때 필요한 부분
 if __name__ == "__main__":
