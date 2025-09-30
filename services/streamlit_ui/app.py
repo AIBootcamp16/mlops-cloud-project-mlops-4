@@ -78,7 +78,7 @@ def load_s3_parquet_hours(bucket_name: str, coins: list, hours: int = 30):
         return {coin: pd.DataFrame() for coin in coins}
 
     df = pd.concat(dfs, ignore_index=True)
-    df['event_hour'] = df['event_timestamp'].dt.floor('H')
+    df['event_hour'] = df['event_timestamp'].dt.floor('h')
 
     coin_dfs = {}
     for coin in coins:
@@ -95,7 +95,7 @@ def load_s3_parquet_incremental(bucket_name: str, coins: list, existing_data: di
     now_utc = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
     
     # 마지막 로드 시각과 현재 시각의 차이 계산
-    last_hour_utc = last_hour.replace(tzinfo=None) - timedelta(hours=9)  # KST to UTC
+    last_hour_utc = last_hour.replace(tzinfo=None) - timedelta(hours=9)
     hours_diff = int((now_utc - last_hour_utc).total_seconds() / 3600)
     
     if hours_diff <= 0:
@@ -168,7 +168,7 @@ def load_s3_parquet_incremental(bucket_name: str, coins: list, existing_data: di
 # -------------------------
 async def fetch_prediction_async(coin: str, model: str, df: pd.DataFrame):
     """비동기 예측 API 호출"""
-    url = "http://localhost:8000/predict/lstm"
+    url = "http://fastapi:8000/predict/lstm"
     
     # DataFrame을 dict로 변환 (최근 30시간 데이터 전송)
     df_clean = df.tail(30).copy()

@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  fastapi:
+    build: ./back
+    container_name: fastapi_app
+    ports:
+      - "8000:8000"
+
+  streamlit:
+    build: ./streamlit_ui
+    container_name: streamlit_app
+    ports:
+      - "80:8501"
+    depends_on:
+      - fastapi
