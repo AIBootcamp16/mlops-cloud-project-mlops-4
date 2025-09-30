@@ -1,0 +1,7 @@
+pandas
+numpy
+pyarrow
+boto3
+python-dotenv
+pydantic
+httpx
