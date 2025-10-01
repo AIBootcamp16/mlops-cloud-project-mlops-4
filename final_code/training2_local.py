@@ -1,6 +1,4 @@
-#aws s3 docker 실행용
 import os
-import sys
 import json
 import numpy as np
 import pandas as pd
@@ -28,99 +26,110 @@ mlflow.set_experiment("bitcoin-lstm_2")
 mlflow.autolog()
 
 # -------------------------------
-# 1️⃣ AWS 환경변수 & S3 client (수정)
+# AWS 환경변수 설정
 # -------------------------------
-# load_dotenv() 제거, 버켓명 하드코딩
-BUCKET_NAME = "raw-data-bucket-moasic-mlops-4"
-USE_AWS = False
+load_dotenv()
 
-try:
-    s3_client = boto3.client("s3")
-    # S3 접근 테스트: 상위 5개 객체 확인
-    response = s3_client.list_objects_v2(Bucket=BUCKET_NAME, MaxKeys=5)
-    if "Contents" in response and len(response["Contents"]) > 0:
-        USE_AWS = True
-        print(f"S3 접근 성공! 버켓 '{BUCKET_NAME}' 연결됨.\n상위 파일/폴더 5개:")
-        for obj in response["Contents"]:
-            print(f" - {obj['Key']}")
-    else:
-        print(f"버켓 '{BUCKET_NAME}'에 객체가 없습니다.")
-        sys.exit(1)
-except Exception as e:
-    print(f"S3 접근 실패: {e}")
-    sys.exit(1)  # 접근 실패 시 종료
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+BUCKET_NAME = os.environ.get("BUCKET_NAME")
 
-# -------------------------------
-# 2️⃣ CSV/Parquet 로드 함수 (기존 그대로)
-# -------------------------------
-def load_csv(bucket_name, key):
-    try:
-        obj = s3_client.get_object(Bucket=bucket_name, Key=key)
-        df = pd.read_csv(obj['Body'], parse_dates=['timestamp'])
-        df = df.sort_values('timestamp').drop_duplicates('timestamp')
-        df['event_timestamp'] = pd.to_datetime(df['timestamp'])
-        df['event_hour'] = df['event_timestamp'].dt.floor('H')
-    except Exception as e:
-        print(f"CSV 로드 실패: {e}")
-        df = pd.DataFrame()
-    return df
+if not all([AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, BUCKET_NAME]):
+    print("AWS 환경변수가 설정되지 않았습니다. 더미 데이터를 사용합니다.")
+    USE_AWS = False
+else:
+    USE_AWS = True
+    s3_client = boto3.client(
+        "s3",
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    )
 
-def load_parquet_prefix(bucket_name, prefix, coin):
-    dfs = []
-    try:
-        response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
-    except Exception as e:
-        print(f"S3 리스트 조회 실패: {e}")
-        return pd.DataFrame()
-
-    if "Contents" not in response:
-        return pd.DataFrame()
-
-    for obj in response["Contents"]:
-        key = obj["Key"]
-        if key.endswith("/"):
-            continue
+# =========================================
+# 1️⃣ 데이터 로드 및 전처리 (수정된 부분)
+# =========================================
+def load_training_data(bucket_name: str, csv_key: str, coin: str):
+    """
+    CSV 기반 과거 학습 데이터 + S3 Parquet 전체 데이터 통합
+    """
+    # 1️⃣ CSV 로드
+    if USE_AWS:
         try:
-            file_obj = s3_client.get_object(Bucket=bucket_name, Key=key)
-            df_temp = pd.read_parquet(BytesIO(file_obj['Body'].read()))
-            df_temp['event_timestamp'] = pd.to_datetime(df_temp['timestamp'], unit='ms') + pd.Timedelta(hours=9)
-            df_temp = df_temp[df_temp['event_timestamp'] >= datetime(2025,9,23,17) + timedelta(hours=9)]
-            if not df_temp.empty:
-                dfs.append(df_temp)
+            csv_obj = s3_client.get_object(Bucket=bucket_name, Key=csv_key)
+            df_csv = pd.read_csv(csv_obj['Body'], parse_dates=['timestamp'])
+            df_csv = df_csv.sort_values('timestamp').drop_duplicates('timestamp')
+            df_csv['event_timestamp'] = pd.to_datetime(df_csv['timestamp'])
+            df_csv['event_hour'] = df_csv['event_timestamp'].dt.floor('H')
         except Exception as e:
-            print(f"Parquet 로드 실패 {key}: {e}")
+            print(f"CSV 로드 실패: {e}")
+            df_csv = pd.DataFrame()
+    else:
+        df_csv = pd.DataFrame()
 
-    if dfs:
+    # 2️⃣ S3 Parquet 전체 로드
+    dfs = []
+    if USE_AWS:
+        start_date = datetime(2025,9,24).date()  # CSV 종료 다음날+1일(9/24 부터 timestamp 컬럼 기준)
+        end_date = datetime.utcnow().date()
+        date_list = pd.date_range(start=start_date, end=end_date).strftime("%Y-%m-%d").tolist()
+
+        for date in date_list:
+            prefix = f"upbit_ticker/{date}/"
+            try:
+                response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+            except Exception as e:
+                print(f"S3 리스트 조회 실패: {e}")
+                continue
+
+            if "Contents" not in response:
+                continue
+
+            for obj in response["Contents"]:
+                key = obj["Key"]
+                if key.endswith("/"):
+                    continue
+                try:
+                    file_obj = s3_client.get_object(Bucket=bucket_name, Key=key)
+                    df_temp = pd.read_parquet(BytesIO(file_obj['Body'].read()))
+                    df_temp['event_timestamp'] = pd.to_datetime(df_temp['timestamp'], unit='ms') + pd.Timedelta(hours=9)
+                    df_temp = df_temp[df_temp['event_timestamp'] >= datetime(2025,9,23,17) + timedelta(hours=9)]
+
+                    if not df_temp.empty:
+                        dfs.append(df_temp)
+                        # print(f"Loaded Parquet: {key}")
+                except Exception as e:
+                    print(f"Parquet 로드 실패 {key}: {e}")
+                    continue
+
+    df_parquet_coin = pd.DataFrame()
+    if len(dfs) > 0:
         df_parquet = pd.concat(dfs, ignore_index=True)
         df_parquet['event_hour'] = df_parquet['event_timestamp'].dt.floor('H')
         df_parquet_coin = df_parquet[df_parquet['market'] == coin].groupby('event_hour').first().reset_index()
-        return df_parquet_coin
-    return pd.DataFrame()
 
+    # 3️⃣ CSV + Parquet 병합
+    if not df_csv.empty:
+        df_csv_coin = df_csv[df_csv['market'] == coin] if 'market' in df_csv.columns else df_csv.copy()
+        df_combined = pd.concat([df_csv_coin, df_parquet_coin], ignore_index=True)
+    else:
+        df_combined = df_parquet_coin
+
+    if not df_combined.empty:
+        df_combined = df_combined.drop_duplicates(subset=['event_hour'], keep='last')
+        df_combined = df_combined.sort_values('event_hour').reset_index(drop=True)
+
+    return df_combined
 
 # -------------------------------
-# 3️⃣ 학습용 데이터 로드
+# 2️⃣ 학습용 데이터 로드
 # -------------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 csv_key = "training data/KRW-BTC_historical.csv"
-df_csv = load_csv(BUCKET_NAME, csv_key)
-df_parquet = load_parquet_prefix(BUCKET_NAME, "upbit_ticker/", "KRW-BTC")
+coin = "KRW-BTC"
 
-# CSV + Parquet 병합
-if not df_csv.empty:
-    df_combined = pd.concat([df_csv, df_parquet], ignore_index=True)
-else:
-    df_combined = df_parquet
+df = load_training_data(BUCKET_NAME, csv_key, coin)
+print(df.shape)
 
-if not df_combined.empty:
-    df_combined = df_combined.drop_duplicates(subset=['event_hour'], keep='last')
-    df_combined = df_combined.sort_values('event_hour').reset_index(drop=True)
-
-df = df_combined
-print("Loaded dataframe shape:", df.shape)
-
-# -------------------------------
-# 기존 feature 처리 그대로
-# -------------------------------
 # features 배열 생성 (기존 컬럼만 사용)
 features = df[['trade_price','acc_trade_volume']].copy()
 
