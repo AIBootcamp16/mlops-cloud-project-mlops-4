@@ -20,11 +20,11 @@ jobs:
 
       # 3. SSH key 세팅 - ssh 명령어로 EC2 접속
       - name: Setup SSH key
-        uses: webfactory/ssh-agent@v0.8.1
+        uses: webfactory/ssh-agent@v0.8.2
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY_TRAINING }}
 
-      # 4. Docker Hub login (private 이미지용)
+      # 4. Docker Hub login (private 이미지면 로그인 필수. 현재 public 이미지 사용)
       - name: Docker login
         run: |
           echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN_TRAINING }}" | \
