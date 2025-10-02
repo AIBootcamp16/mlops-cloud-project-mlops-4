@@ -1,0 +1,44 @@
+name: Daily Model Retraining
+
+on:
+  schedule:
+    - cron: '0 5 * * *'  # 테스트용 UTC 0 5 (=한국 오후 2시) > 매일 자정(0 15)으로 수정하기!
+  workflow_dispatch:     # 수동 실행 옵션
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest # GitHub Actions runner OS, EC2(Amazon Linux 2023)와 무관
+
+    steps:
+      # 1. github 저장소 코드를 runner로 복사 - docker 이미지만 사용하는 경우 제거 가능
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2. SSH client 설치
+      - name: Install SSH client
+        run: sudo apt-get update && sudo apt-get install -y openssh-client
+
+      # 3. SSH key 세팅 - ssh 명령어로 EC2 접속
+      - name: Setup SSH key
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY_TRAINING }}
+
+      # 4. Docker Hub login (private 이미지용)
+      - name: Docker login
+        run: |
+          echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN_TRAINING }}" | \
+          docker login -u "${{ secrets.DOCKER_HUB_USERNAME_TRAINING }}" --password-stdin
+
+      # 5. EC2 접속 후 Docker 이미지 pull/run
+      - name: Run retraining on EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER_TRAINING }}@${{ secrets.EC2_HOST_TRAINING }} << 'EOF'
+          docker pull ${{ secrets.DOCKER_IMAGE_TRAINING }}
+          docker run --rm ${{ secrets.DOCKER_IMAGE_TRAINING }}
+          EOF
+
+      # 6. 실패 시 간단 알림
+      - name: Notify on failure
+        if: failure()
+        run: echo "⚠️ Daily model retraining workflow failed!"
