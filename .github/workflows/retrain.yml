@@ -2,7 +2,7 @@ name: Daily Model Retraining
 
 on:
   schedule:
-    - cron: '0 5 * * *'  # 매일 자정(UTC 15) 실행
+    - cron: '0 15 * * *'  # 매일 자정(UTC 15) 실행
   workflow_dispatch:     # 수동 실행 옵션
 
 jobs:
