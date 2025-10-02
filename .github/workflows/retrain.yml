@@ -18,11 +18,15 @@ jobs:
       - name: Install SSH client
         run: sudo apt-get update && sudo apt-get install -y openssh-client
 
-      # 3. SSH agent 직접 실행 및 개인키 등록
-      - name: Start SSH agent and add key
+      # 3. SSH 
+      - name: Setup SSH key
         run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY_TRAINING }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
           eval "$(ssh-agent -s)"
-          echo "${{ secrets.EC2_SSH_KEY_TRAINING }}" | tr -d '\r' | ssh-add -
+          ssh-add ~/.ssh/id_rsa
+          ssh-add -l  # agent에 등록 확인
  
       # # 3. SSH key 세팅 - ssh 명령어로 EC2 접속
       # - name: Setup SSH key
