@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest # GitHub Actions runner OS, EC2(Amazon Linux 2023)와 무관
 
     steps:
-      # 1. github 저장소 코드를 runner로 복사 - docker 이미지만 사용하는 경우 제거 가능
+      # 1. github 저장소 코드를 runner로 복사 - docker 이미지만 사용하는 경우 생략 가능
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -18,11 +18,17 @@ jobs:
       - name: Install SSH client
         run: sudo apt-get update && sudo apt-get install -y openssh-client
 
-      # 3. SSH key 세팅 - ssh 명령어로 EC2 접속
-      - name: Setup SSH key
-        uses: webfactory/ssh-agent@v0.8.2
-        with:
-          ssh-private-key: ${{ secrets.EC2_SSH_KEY_TRAINING }}
+      # 3. SSH agent 직접 실행 및 개인키 등록
+      - name: Start SSH agent and add key
+        run: |
+          eval "$(ssh-agent -s)"
+          echo "${{ secrets.EC2_SSH_KEY_TRAINING }}" | tr -d '\r' | ssh-add -
+ 
+      # # 3. SSH key 세팅 - ssh 명령어로 EC2 접속
+      # - name: Setup SSH key
+      #   uses: webfactory/ssh-agent@v0.8.2
+      #   with:
+      #     ssh-private-key: ${{ secrets.EC2_SSH_KEY_TRAINING }}
 
       # 4. Docker Hub login (private 이미지면 로그인 필수. 현재 public 이미지 사용)
       - name: Docker login
